@@ -2,6 +2,8 @@ mod lox;
 
 use lox::Lox;
 use std::env;
+mod token;
+mod token_type;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
