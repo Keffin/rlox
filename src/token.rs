@@ -1,6 +1,6 @@
 use crate::token_type::TokenType;
 
-struct Token {
+pub struct Token {
     token_type: TokenType,
     lexeme: String,
     literal: String,

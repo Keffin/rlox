@@ -53,8 +53,8 @@ pub enum TokenType {
 impl fmt::Display for TokenType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
-            TokenType::LEFTPAREN => write!(f, "LEFTPARAN"),
-            TokenType::RIGHTPAREN => write!(f, "RIGHTPARAN"),
+            TokenType::LEFTPAREN => write!(f, "LEFTPAREN"),
+            TokenType::RIGHTPAREN => write!(f, "RIGHTPAREN"),
             TokenType::LEFTBRACE => write!(f, "LEFTBRACE"),
             TokenType::RIGHTBRACE => write!(f, "RIGHTBRACE"),
             TokenType::COMMA => write!(f, "COMMA"),
