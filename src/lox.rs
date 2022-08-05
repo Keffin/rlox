@@ -3,6 +3,9 @@ use std::{
     io::{stdin, stdout, Write},
 };
 
+use crate::scanner::Scanner;
+use crate::token::Token;
+
 pub struct Lox {
     pub had_error: bool,
 }
@@ -25,23 +28,27 @@ impl Lox {
                 std::process::exit(1);
             }
             println!("input: {}", prettify_input);
-            self.run(&prettify_input);
+            self.run(prettify_input);
             self.had_error = false;
         }
     }
 
     pub fn run_file(&self, file_path: &String) {
         let content: String = fs::read_to_string(file_path).expect("Err while reading file");
-        self.run(&content);
+        self.run(content);
 
         if self.had_error {
             std::process::exit(65);
         }
     }
 
-    pub fn run(&self, line: &String) {
-        print!("{}", line)
-        //todo!("To be implemented");
+    pub fn run(&self, source: String) {
+        let mut scanner: Scanner = Scanner::new(source);
+        let tokens: &Vec<Token> = scanner.scan_tokens();
+
+        for token in tokens {
+            println!("Token: {}", token.to_string_impl());
+        }
     }
 
     pub fn error(&mut self, line: u32, message: &str) {

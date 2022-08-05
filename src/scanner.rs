@@ -4,13 +4,14 @@ use crate::lox::Lox;
 use crate::token::{self, Token};
 use crate::token_type::TokenType;
 
-struct Scanner {
+pub struct Scanner {
     source: String,
     tokens: Vec<Token>,
     start: u32,
     current: u32,
     line: u32,
     keywords: HashMap<String, TokenType>,
+    lox: Lox,
 }
 
 impl Scanner {
@@ -39,13 +40,14 @@ impl Scanner {
                 (String::from("var"), TokenType::VAR),
                 (String::from("while"), TokenType::WHILE),
             ]),
+            lox: Lox::new(),
         }
     }
 
     pub fn scan_tokens(&mut self) -> &Vec<Token> {
         while !self.is_at_end() {
             self.start = self.current;
-            //scan_token();
+            self.scan_token();
         }
 
         self.tokens.push(Token::new(
@@ -63,45 +65,45 @@ impl Scanner {
         return self.current >= self.source.len() as u32;
     }
 
-    fn scan_token(&mut self, mut lox: Lox) {
+    fn scan_token(&mut self) {
         let c: char = self.advance();
         match c {
-            '(' => self.add_token(TokenType::LEFTPAREN, "Null".to_string()),
-            ')' => self.add_token(TokenType::RIGHTPAREN, "Null".to_string()),
-            '{' => self.add_token(TokenType::LEFTBRACE, "Null".to_string()),
-            '}' => self.add_token(TokenType::RIGHTBRACE, "Null".to_string()),
-            ',' => self.add_token(TokenType::COMMA, "Null".to_string()),
-            '.' => self.add_token(TokenType::DOT, "Null".to_string()),
-            '-' => self.add_token(TokenType::MINUS, "Null".to_string()),
-            '+' => self.add_token(TokenType::PLUS, "Null".to_string()),
-            ';' => self.add_token(TokenType::SEMICOLON, "Null".to_string()),
-            '*' => self.add_token(TokenType::STAR, "Null".to_string()),
+            '(' => self.add_token(TokenType::LEFTPAREN, "LEFT PAREN".to_string()),
+            ')' => self.add_token(TokenType::RIGHTPAREN, "RIGHT PAREN".to_string()),
+            '{' => self.add_token(TokenType::LEFTBRACE, "LEFT BRACE".to_string()),
+            '}' => self.add_token(TokenType::RIGHTBRACE, "RIGHT BRACE".to_string()),
+            ',' => self.add_token(TokenType::COMMA, "COMMA".to_string()),
+            '.' => self.add_token(TokenType::DOT, "DOT".to_string()),
+            '-' => self.add_token(TokenType::MINUS, "MINUS".to_string()),
+            '+' => self.add_token(TokenType::PLUS, "PLUS".to_string()),
+            ';' => self.add_token(TokenType::SEMICOLON, "SEMICOLON".to_string()),
+            '*' => self.add_token(TokenType::STAR, "STAR".to_string()),
             '!' => {
                 if self.matches('=') {
-                    self.add_token(TokenType::BANGEQUAL, "Null".to_string())
+                    self.add_token(TokenType::BANGEQUAL, "BANG EQUAL".to_string())
                 } else {
-                    self.add_token(TokenType::BANG, "Null".to_string())
+                    self.add_token(TokenType::BANG, "BANG".to_string())
                 }
             }
             '=' => {
                 if self.matches('=') {
-                    self.add_token(TokenType::EQUALEQUAL, "Null".to_string())
+                    self.add_token(TokenType::EQUALEQUAL, "EQUAL EQUAL".to_string())
                 } else {
-                    self.add_token(TokenType::EQUAL, "Null".to_string())
+                    self.add_token(TokenType::EQUAL, "EQUAL".to_string())
                 }
             }
             '<' => {
                 if self.matches('=') {
-                    self.add_token(TokenType::LESSEQUAL, "Null".to_string())
+                    self.add_token(TokenType::LESSEQUAL, "LESS EQUAL".to_string())
                 } else {
-                    self.add_token(TokenType::LESS, "Null".to_string())
+                    self.add_token(TokenType::LESS, "LESS".to_string())
                 }
             }
             '>' => {
                 if self.matches('=') {
-                    self.add_token(TokenType::GREATEREQUAL, "Null".to_string())
+                    self.add_token(TokenType::GREATEREQUAL, "GREATER EQUAL".to_string())
                 } else {
-                    self.add_token(TokenType::GREATER, "Null".to_string())
+                    self.add_token(TokenType::GREATER, "GREATER".to_string())
                 }
             }
             '/' => {
@@ -110,15 +112,15 @@ impl Scanner {
                         self.advance();
                     }
                 } else {
-                    self.add_token(TokenType::SLASH, "Null".to_string());
+                    self.add_token(TokenType::SLASH, "SLASH".to_string());
                 }
             }
             ' ' | '\r' | '\t' => (),
             '\n' => self.line += 1,
-            '"' => self.string(lox),
+            '"' => self.string(),
             'o' => {
                 if self.matches('r') {
-                    self.add_token(TokenType::OR, "Null".to_string());
+                    self.add_token(TokenType::OR, "Boolean OR".to_string());
                 }
             }
             _ => {
@@ -127,7 +129,7 @@ impl Scanner {
                 } else if self.is_alpha(c) {
                     self.identifier()
                 } else {
-                    lox.error(self.line, "Unexpected character")
+                    self.lox.error(self.line, "Unexpected character")
                 }
             }
         };
@@ -165,7 +167,7 @@ impl Scanner {
         return self.source.chars().nth(self.current as usize).unwrap();
     }
 
-    fn string(&mut self, mut lox: Lox) {
+    fn string(&mut self) {
         while self.peek() != '"' && !self.is_at_end() {
             if self.peek() == '\n' {
                 self.line += 1;
@@ -174,7 +176,7 @@ impl Scanner {
         }
 
         if self.is_at_end() {
-            lox.error(self.line, "Unterminated string");
+            self.lox.error(self.line, "Unterminated string");
         }
 
         self.advance();
@@ -222,22 +224,22 @@ impl Scanner {
         let text: &str = &self.source[self.start as usize..self.current as usize];
         let token_type: Option<&TokenType> = self.keywords.get(&text.to_string());
         match token_type {
-            Some(TokenType::AND) => self.add_token(TokenType::AND, "Null".to_string()),
-            Some(TokenType::CLASS) => self.add_token(TokenType::CLASS, "Null".to_string()),
-            Some(TokenType::ELSE) => self.add_token(TokenType::ELSE, "Null".to_string()),
-            Some(TokenType::FALSE) => self.add_token(TokenType::FALSE, "Null".to_string()),
-            Some(TokenType::FOR) => self.add_token(TokenType::FOR, "Null".to_string()),
-            Some(TokenType::FUN) => self.add_token(TokenType::FUN, "Null".to_string()),
-            Some(TokenType::IF) => self.add_token(TokenType::IF, "Null".to_string()),
-            Some(TokenType::NIL) => self.add_token(TokenType::NIL, "Null".to_string()),
-            Some(TokenType::OR) => self.add_token(TokenType::OR, "Null".to_string()),
-            Some(TokenType::PRINT) => self.add_token(TokenType::PRINT, "Null".to_string()),
-            Some(TokenType::RETURN) => self.add_token(TokenType::RETURN, "Null".to_string()),
-            Some(TokenType::SUPER) => self.add_token(TokenType::SUPER, "Null".to_string()),
-            Some(TokenType::THIS) => self.add_token(TokenType::THIS, "Null".to_string()),
-            Some(TokenType::TRUE) => self.add_token(TokenType::TRUE, "Null".to_string()),
-            Some(TokenType::VAR) => self.add_token(TokenType::VAR, "Null".to_string()),
-            Some(TokenType::WHILE) => self.add_token(TokenType::WHILE, "Null".to_string()),
+            Some(TokenType::AND) => self.add_token(TokenType::AND, "Boolean AND".to_string()),
+            Some(TokenType::CLASS) => self.add_token(TokenType::CLASS, "CLASS".to_string()),
+            Some(TokenType::ELSE) => self.add_token(TokenType::ELSE, "ELSE".to_string()),
+            Some(TokenType::FALSE) => self.add_token(TokenType::FALSE, "Boolean False".to_string()),
+            Some(TokenType::FOR) => self.add_token(TokenType::FOR, "FOR".to_string()),
+            Some(TokenType::FUN) => self.add_token(TokenType::FUN, "FUN".to_string()),
+            Some(TokenType::IF) => self.add_token(TokenType::IF, "IF".to_string()),
+            Some(TokenType::NIL) => self.add_token(TokenType::NIL, "NIL".to_string()),
+            Some(TokenType::OR) => self.add_token(TokenType::OR, "Boolean OR".to_string()),
+            Some(TokenType::PRINT) => self.add_token(TokenType::PRINT, "PRINT".to_string()),
+            Some(TokenType::RETURN) => self.add_token(TokenType::RETURN, "RETURN".to_string()),
+            Some(TokenType::SUPER) => self.add_token(TokenType::SUPER, "SUPER".to_string()),
+            Some(TokenType::THIS) => self.add_token(TokenType::THIS, "THIS".to_string()),
+            Some(TokenType::TRUE) => self.add_token(TokenType::TRUE, "Boolean TRUE".to_string()),
+            Some(TokenType::VAR) => self.add_token(TokenType::VAR, "VAR".to_string()),
+            Some(TokenType::WHILE) => self.add_token(TokenType::WHILE, "WHILE".to_string()),
             _ => self.add_token(TokenType::IDENTIFIER, "Null".to_string()),
         };
     }
