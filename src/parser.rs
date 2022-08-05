@@ -21,7 +21,7 @@ impl Parser {
     }
 
     fn expression(&mut self) -> Box<Expr> {
-        return self.equality();
+        self.equality()
     }
 
     fn equality(&mut self) -> Box<Expr> {
@@ -37,7 +37,7 @@ impl Parser {
             })
         }
 
-        return expr;
+        expr
     }
 
     fn comparison(&mut self) -> Box<Expr> {
@@ -57,7 +57,7 @@ impl Parser {
                 right: right,
             })
         }
-        return expr;
+        expr
     }
 
     fn term(&mut self) -> Box<Expr> {
@@ -72,7 +72,7 @@ impl Parser {
                 right: right,
             })
         }
-        return expr;
+        expr
     }
 
     fn factor(&mut self) -> Box<Expr> {
@@ -87,7 +87,7 @@ impl Parser {
                 right: right,
             })
         }
-        return expr;
+        expr
     }
 
     fn unary(&mut self) -> Box<Expr> {
@@ -99,7 +99,7 @@ impl Parser {
                 right: right,
             });
         }
-        return self.primary();
+        self.primary()
     }
 
     fn primary(&mut self) -> Box<Expr> {
@@ -117,11 +117,7 @@ impl Parser {
             if tt.token_type == TokenType::NUMBER {
                 let tt_val: Result<f64, ParseFloatError> = tt.literal.parse::<f64>();
                 match tt_val {
-                    Ok(val) => {
-                        return Box::new(Expr::Literal(LiteralRepresentations::Number(
-                            tt_val.unwrap(),
-                        )))
-                    }
+                    Ok(val) => Box::new(Expr::Literal(LiteralRepresentations::Number(val))),
                     Err(e) => panic!("Failed to parse float"),
                 };
             } else {
@@ -135,9 +131,9 @@ impl Parser {
             return Box::new(Expr::Grouping(expr));
         }
 
-        return Box::new(Expr::FailScenario {
+        Box::new(Expr::FailScenario {
             reason: "Reached end, expecting an expression".to_string(),
-        });
+        })
     }
 
     fn consume(&self, token_type: TokenType, msg: &str) {}
@@ -149,7 +145,7 @@ impl Parser {
                 return true;
             }
         }
-        return false;
+        false
     }
 
     fn check(&self, token_type: TokenType) -> bool {
@@ -157,26 +153,26 @@ impl Parser {
             return false;
         }
         let tt: Token = self.peek().clone();
-        return tt.token_type == token_type;
+        tt.token_type == token_type
     }
 
     fn advance(&mut self) -> Token {
         if self.is_at_end() {
             self.current += 1;
         }
-        return self.previous().clone();
+        self.previous().clone()
     }
 
     fn is_at_end(&self) -> bool {
         let tt: Token = self.peek().clone();
-        return tt.token_type == TokenType::EOF;
+        tt.token_type == TokenType::EOF
     }
 
     fn peek(&self) -> &Token {
-        return &self.tokens[self.current as usize];
+        &self.tokens[self.current as usize]
     }
 
     fn previous(&self) -> &Token {
-        return &self.tokens[self.current as usize - 1];
+        &self.tokens[self.current as usize - 1]
     }
 }

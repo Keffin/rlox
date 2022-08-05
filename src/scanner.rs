@@ -58,11 +58,11 @@ impl Scanner {
         ));
 
         // Return reference or add clone to Token type struct.
-        return &self.tokens;
+        &self.tokens
     }
 
     fn is_at_end(&self) -> bool {
-        return self.current >= self.source.len() as u32;
+        self.current >= self.source.len() as u32
     }
 
     fn scan_token(&mut self) {
@@ -138,7 +138,7 @@ impl Scanner {
     fn advance(&mut self) -> char {
         let curr_char: char = self.source.chars().nth(self.current as usize).unwrap();
         self.current += 1;
-        return curr_char;
+        curr_char
     }
 
     fn add_token(&mut self, token_type: TokenType, literal: String) {
@@ -157,14 +157,14 @@ impl Scanner {
         }
 
         self.current += 1;
-        return true;
+        true
     }
 
     fn peek(&self) -> char {
         if self.is_at_end() {
             return '\n';
         }
-        return self.source.chars().nth(self.current as usize).unwrap();
+        self.source.chars().nth(self.current as usize).unwrap()
     }
 
     fn string(&mut self) {
@@ -189,7 +189,7 @@ impl Scanner {
     }
 
     fn is_digit(&self, c: char) -> bool {
-        return c >= '0' && c <= '9';
+        c >= '0' && c <= '9'
     }
 
     fn number(&mut self) {
@@ -213,7 +213,7 @@ impl Scanner {
         if self.current + 1 >= self.source.len() as u32 {
             return '\0';
         }
-        return self.source.chars().nth(self.current as usize + 1).unwrap();
+        self.source.chars().nth(self.current as usize + 1).unwrap()
     }
 
     fn identifier(&mut self) {
@@ -245,10 +245,10 @@ impl Scanner {
     }
 
     fn is_alpha_numeric(&self, c: char) -> bool {
-        return self.is_alpha(c) || self.is_digit(c);
+        self.is_alpha(c) || self.is_digit(c)
     }
 
     fn is_alpha(&self, c: char) -> bool {
-        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
+        (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_'
     }
 }
