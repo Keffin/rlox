@@ -1,5 +1,6 @@
 use std::fmt::{self};
 
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum TokenType {
     // Single-character tokens.
     LEFTPAREN,
