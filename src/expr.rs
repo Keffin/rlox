@@ -1,5 +1,6 @@
 use crate::token::Token;
 
+#[derive(Debug)]
 pub enum Expr {
     Binary {
         // Recursive types, need to Box
@@ -19,6 +20,7 @@ pub enum Expr {
     },
 }
 
+#[derive(Debug)]
 pub enum LiteralRepresentations {
     Boolean(bool),
     Nil,

@@ -3,8 +3,8 @@ use std::{
     io::{stdin, stdout, Write},
 };
 
-use crate::scanner::Scanner;
-use crate::token::Token;
+use crate::{expr::Expr, parser::Parser, token::Token};
+use crate::{scanner::Scanner, token_type::TokenType};
 
 pub struct Lox {
     pub had_error: bool,
@@ -46,8 +46,19 @@ impl Lox {
         let mut scanner: Scanner = Scanner::new(source);
         let tokens: &Vec<Token> = scanner.scan_tokens();
 
-        for token in tokens {
-            println!("Token: {}", token.to_string_impl());
+        let mut parser: Parser = Parser::new(tokens.to_vec());
+        let expr: Box<Expr> = parser.parse();
+
+        println!("{:#?}", expr);
+    }
+
+    pub fn parser_error(&mut self, token: Token, message: &str) {
+        self.had_error = true;
+        if token.token_type == TokenType::EOF {
+            self.report(token.line, "at end", message)
+        } else {
+            let loc_msg: String = format!("at '{}'", token.lexeme);
+            self.report(token.line, &loc_msg, message)
         }
     }
 

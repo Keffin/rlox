@@ -1,11 +1,11 @@
 use crate::token_type::TokenType;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Token {
     pub token_type: TokenType,
-    lexeme: String,
+    pub lexeme: String,
     pub literal: String,
-    line: u32,
+    pub line: u32,
 }
 
 impl Token {

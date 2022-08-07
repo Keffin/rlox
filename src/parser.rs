@@ -3,6 +3,7 @@ use std::num::ParseFloatError;
 
 use crate::{
     expr::{Expr, LiteralRepresentations},
+    lox::{self, Lox},
     token::{self, Token},
     token_type::TokenType,
 };
@@ -18,6 +19,10 @@ impl Parser {
             tokens: tokens,
             current: 0,
         }
+    }
+
+    pub fn parse(&mut self) -> Box<Expr> {
+        self.expression()
     }
 
     fn expression(&mut self) -> Box<Expr> {
@@ -62,9 +67,9 @@ impl Parser {
 
     fn term(&mut self) -> Box<Expr> {
         let mut expr: Box<Expr> = self.factor();
-
         while self.matches(vec![TokenType::MINUS, TokenType::PLUS]) {
             let operator: Token = self.previous().clone();
+            print!("{:#?}", operator);
             let right: Box<Expr> = self.factor();
             expr = Box::new(Expr::Binary {
                 left: expr,
@@ -117,8 +122,8 @@ impl Parser {
             if tt.token_type == TokenType::NUMBER {
                 let tt_val: Result<f64, ParseFloatError> = tt.literal.parse::<f64>();
                 match tt_val {
-                    Ok(val) => Box::new(Expr::Literal(LiteralRepresentations::Number(val))),
-                    Err(e) => panic!("Failed to parse float"),
+                    Ok(val) => return Box::new(Expr::Literal(LiteralRepresentations::Number(val))),
+                    Err(e) => panic!("Failed to parse float {}", e),
                 };
             } else {
                 return Box::new(Expr::Literal(LiteralRepresentations::String(tt.literal)));
@@ -136,7 +141,17 @@ impl Parser {
         })
     }
 
-    fn consume(&self, token_type: TokenType, msg: &str) {}
+    fn consume(
+        &mut self,
+        token_type: TokenType,
+        msg: &'static str,
+    ) -> Result<Token, (&Token, &'static str)> {
+        if self.check(token_type) {
+            return Ok(self.advance());
+        }
+
+        return Err((self.peek(), msg));
+    }
 
     fn matches(&mut self, token_type_vec: Vec<TokenType>) -> bool {
         for token in token_type_vec {
@@ -173,6 +188,37 @@ impl Parser {
     }
 
     fn previous(&self) -> &Token {
+        if self.current == 0 {
+            return &self.tokens[0];
+        }
         &self.tokens[self.current as usize - 1]
+    }
+
+    fn error(&self, token: Token, message: &str, mut lox: Lox) {
+        lox.parser_error(token, message);
+    }
+
+    fn synchronize(&mut self) {
+        self.advance();
+
+        while !self.is_at_end() {
+            if self.previous().token_type == TokenType::SEMICOLON {
+                return;
+            }
+
+            match self.peek().token_type {
+                TokenType::CLASS
+                | TokenType::FUN
+                | TokenType::VAR
+                | TokenType::FOR
+                | TokenType::IF
+                | TokenType::WHILE
+                | TokenType::PRINT
+                | TokenType::RETURN => return,
+                _ => (),
+            }
+
+            self.advance();
+        }
     }
 }
