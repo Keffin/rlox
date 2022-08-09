@@ -3,6 +3,7 @@ mod lox;
 use lox::Lox;
 use std::env;
 mod expr;
+mod interpreter;
 mod parser;
 mod scanner;
 mod token;

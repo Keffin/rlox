@@ -3,7 +3,7 @@ use std::{
     io::{stdin, stdout, Write},
 };
 
-use crate::{expr::Expr, parser::Parser, token::Token};
+use crate::{expr::Expr, interpreter, parser::Parser, token::Token};
 use crate::{scanner::Scanner, token_type::TokenType};
 
 pub struct Lox {

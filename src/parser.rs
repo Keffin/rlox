@@ -109,31 +109,45 @@ impl Parser {
 
     fn primary(&mut self) -> Box<Expr> {
         if self.matches(vec![TokenType::FALSE]) {
-            return Box::new(Expr::Literal(LiteralRepresentations::Boolean(false)));
+            return Box::new(Expr::Literal {
+                literal: LiteralRepresentations::CustomBoolean { val: false },
+            });
         }
         if self.matches(vec![TokenType::TRUE]) {
-            return Box::new(Expr::Literal(LiteralRepresentations::Boolean(true)));
+            return Box::new(Expr::Literal {
+                literal: LiteralRepresentations::CustomBoolean { val: true },
+            });
         }
         if self.matches(vec![TokenType::NIL]) {
-            return Box::new(Expr::Literal(LiteralRepresentations::Nil));
+            return Box::new(Expr::Literal {
+                literal: LiteralRepresentations::CustomNil {
+                    val: "Null".to_string(),
+                },
+            });
         }
         if self.matches(vec![TokenType::NUMBER, TokenType::STRING]) {
             let tt: Token = self.previous().clone();
             if tt.token_type == TokenType::NUMBER {
                 let tt_val: Result<f64, ParseFloatError> = tt.literal.parse::<f64>();
                 match tt_val {
-                    Ok(val) => return Box::new(Expr::Literal(LiteralRepresentations::Number(val))),
+                    Ok(val) => {
+                        return Box::new(Expr::Literal {
+                            literal: LiteralRepresentations::CustomNumber { val },
+                        })
+                    }
                     Err(e) => panic!("Failed to parse float {}", e),
                 };
             } else {
-                return Box::new(Expr::Literal(LiteralRepresentations::String(tt.literal)));
+                return Box::new(Expr::Literal {
+                    literal: LiteralRepresentations::CustomString { val: tt.literal },
+                });
             }
         }
 
         if self.matches(vec![TokenType::LEFTPAREN]) {
             let expr: Box<Expr> = self.expression();
             self.consume(TokenType::RIGHTPAREN, "Expect ')' after expression.");
-            return Box::new(Expr::Grouping(expr));
+            return Box::new(Expr::Grouping { expr });
         }
 
         Box::new(Expr::FailScenario {

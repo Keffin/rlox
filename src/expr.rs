@@ -12,18 +12,41 @@ pub enum Expr {
         operator: Token,
         right: Box<Expr>,
     },
-    Literal(LiteralRepresentations),
-    Grouping(Box<Expr>),
+    Literal {
+        // Temp solution for representing string as null
+        literal: LiteralRepresentations,
+    },
+    Grouping {
+        expr: Box<Expr>,
+    },
     // Temp solution for handling end scenario of primary
     FailScenario {
         reason: String,
     },
 }
 
-#[derive(Debug)]
+// Represent Lox Nil type as a custom Null type which will be a string, temp solution
+type Null = String;
+#[derive(Debug, PartialEq)]
 pub enum LiteralRepresentations {
-    Boolean(bool),
-    Nil,
-    Number(f64),
-    String(String),
+    CustomBoolean { val: bool },
+    CustomNil { val: Null },
+    CustomNumber { val: f64 },
+    CustomString { val: String },
+}
+
+pub struct CustomBoolean {
+    val: bool,
+}
+
+pub struct CustomNil {
+    val: Null,
+}
+
+pub struct CustomNumber {
+    val: f64,
+}
+
+pub struct CustomString {
+    val: String,
 }
