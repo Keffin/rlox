@@ -1,6 +1,7 @@
 use crate::expr::Expr::Literal;
 use crate::expr::{self, CustomBoolean, Expr, LiteralRepresentations};
 use crate::token::Token;
+use crate::token_type::TokenType;
 
 struct Interpreter {
     test: String,
@@ -16,22 +17,30 @@ impl Interpreter {
             } => self.eval_bin(left, operator, right),
 
             Expr::Literal { literal } => match literal {
-                LiteralRepresentations::CustomBoolean { val } => Expr::Literal {
-                    literal: LiteralRepresentations::CustomBoolean { val },
-                },
-                LiteralRepresentations::CustomNil { val } => Expr::Literal {
-                    literal: LiteralRepresentations::CustomNil { val },
-                },
-                LiteralRepresentations::CustomNumber { val } => Expr::Literal {
-                    literal: LiteralRepresentations::CustomNumber { val },
-                },
-                LiteralRepresentations::CustomString { val } => Expr::Literal {
-                    literal: LiteralRepresentations::CustomString { val },
-                },
+                LiteralRepresentations::CustomBoolean { val } => {
+                    return Expr::Literal {
+                        literal: LiteralRepresentations::CustomBoolean { val },
+                    }
+                }
+                LiteralRepresentations::CustomNil { val } => {
+                    return Expr::Literal {
+                        literal: LiteralRepresentations::CustomNil { val },
+                    }
+                }
+                LiteralRepresentations::CustomNumber { val } => {
+                    return Expr::Literal {
+                        literal: LiteralRepresentations::CustomNumber { val },
+                    }
+                }
+                LiteralRepresentations::CustomString { val } => {
+                    return Expr::Literal {
+                        literal: LiteralRepresentations::CustomString { val },
+                    }
+                }
             },
 
             Expr::Grouping { expr } => self.eval(*expr),
-            Expr::Unary { operator, right } => self.eval_unary(operator, right),
+            Expr::Unary { operator, right } => self.eval_unary(operator, *right),
             Expr::FailScenario { reason } => self.eval_fail_scenario(reason),
         }
     }
@@ -40,8 +49,22 @@ impl Interpreter {
         todo!()
     }
 
-    fn eval_unary(&self, operator: Token, right: Box<Expr>) -> Expr {
-        todo!()
+    fn eval_unary(&mut self, operator: Token, right: Expr) -> Expr {
+        let right: Expr = self.eval(right);
+
+        match operator.token_type {
+            TokenType::MINUS => match right {
+                Expr::Literal {
+                    literal: LiteralRepresentations::CustomNumber { val: number },
+                } => {
+                    return Expr::Literal {
+                        literal: LiteralRepresentations::CustomNumber { val: -number },
+                    }
+                }
+                _ => panic!("Could not parse expression in unary evaluation"),
+            },
+            _ => panic!("WRONG"),
+        }
     }
 
     fn eval_fail_scenario(&self, reason: String) -> Expr {
