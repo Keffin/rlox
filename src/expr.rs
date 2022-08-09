@@ -25,6 +25,10 @@ pub enum Expr {
     },
 }
 
+pub struct Literal {
+    pub literal: LiteralRepresentations,
+}
+
 // Represent Lox Nil type as a custom Null type which will be a string, temp solution
 type Null = String;
 #[derive(Debug, PartialEq)]
