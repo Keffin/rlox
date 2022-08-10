@@ -82,18 +82,93 @@ impl Interpreter {
         }
     }
 
+    fn fetch_boolean_evaluation(
+        &self,
+        operator_token_type: TokenType,
+        left_num: f64,
+        right_num: f64,
+    ) -> RLoxEvalResult {
+        match operator_token_type {
+            TokenType::GREATER => {
+                return Ok(Expr::Literal {
+                    literal: LiteralRepresentations::CustomBoolean {
+                        val: left_num > right_num,
+                    },
+                })
+            }
+
+            TokenType::GREATEREQUAL => {
+                return Ok(Expr::Literal {
+                    literal: LiteralRepresentations::CustomBoolean {
+                        val: left_num >= right_num,
+                    },
+                })
+            }
+
+            TokenType::LESS => {
+                return Ok(Expr::Literal {
+                    literal: LiteralRepresentations::CustomBoolean {
+                        val: left_num < right_num,
+                    },
+                })
+            }
+
+            TokenType::LESSEQUAL => {
+                return Ok(Expr::Literal {
+                    literal: LiteralRepresentations::CustomBoolean {
+                        val: left_num <= right_num,
+                    },
+                })
+            }
+
+            _ => {
+                return Err(InterpreterError {
+                    reason: "Failed, only expecting boolean comparisions".to_string(),
+                })
+            }
+        }
+    }
+
     fn eval_binary(&mut self, left: Expr, operator: Token, right: Expr) -> RLoxEvalResult {
         let left: RLoxEvalResult = self.eval(left);
         let right: RLoxEvalResult = self.eval(right);
 
+        let left_expr = left.unwrap();
+        let right_expr = right.unwrap();
+
+        let x: (InterpretedParsed, InterpretedParsed) =
+            self.binary_evaluation(&left_expr, &right_expr)?;
+
         match operator.token_type {
+            TokenType::GREATER => {
+                let left_num: f64 = self.fetch_numeric_value(x.0)?;
+                let right_num: f64 = self.fetch_numeric_value(x.1)?;
+
+                return self.fetch_boolean_evaluation(TokenType::GREATER, left_num, right_num);
+            }
+
+            TokenType::GREATEREQUAL => {
+                let left_num: f64 = self.fetch_numeric_value(x.0)?;
+                let right_num: f64 = self.fetch_numeric_value(x.1)?;
+
+                return self.fetch_boolean_evaluation(TokenType::GREATEREQUAL, left_num, right_num);
+            }
+
+            TokenType::LESS => {
+                let left_num: f64 = self.fetch_numeric_value(x.0)?;
+                let right_num: f64 = self.fetch_numeric_value(x.1)?;
+
+                return self.fetch_boolean_evaluation(TokenType::LESS, left_num, right_num);
+            }
+
+            TokenType::LESSEQUAL => {
+                let left_num: f64 = self.fetch_numeric_value(x.0)?;
+                let right_num: f64 = self.fetch_numeric_value(x.1)?;
+
+                return self.fetch_boolean_evaluation(TokenType::LESSEQUAL, left_num, right_num);
+            }
+
             TokenType::MINUS => {
-                let left_expr = left.unwrap();
-                let right_expr = right.unwrap();
-
-                let x: (InterpretedParsed, InterpretedParsed) =
-                    self.binary_evaluation(&left_expr, &right_expr)?;
-
                 let left_num = self.fetch_numeric_value(x.0)?;
                 let right_num = self.fetch_numeric_value(x.1)?;
 
@@ -105,11 +180,6 @@ impl Interpreter {
             }
 
             TokenType::PLUS => {
-                let left_expr = left.unwrap();
-                let right_expr = right.unwrap();
-                let x: (InterpretedParsed, InterpretedParsed) =
-                    self.binary_evaluation(&left_expr, &right_expr)?;
-
                 match (left_expr, right_expr) {
                     (
                         Expr::Literal {
@@ -156,11 +226,6 @@ impl Interpreter {
             }
 
             TokenType::SLASH => {
-                let left_expr = left.unwrap();
-                let right_expr = right.unwrap();
-                let x: (InterpretedParsed, InterpretedParsed) =
-                    self.binary_evaluation(&left_expr, &right_expr)?;
-
                 let left_num = self.fetch_numeric_value(x.0)?;
                 let right_num = self.fetch_numeric_value(x.1)?;
 
