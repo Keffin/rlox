@@ -3,6 +3,7 @@ use std::error::Error;
 use std::marker::PhantomData;
 
 use crate::expr::{self, CustomBoolean, CustomNumber, Expr, Literal, LiteralRepresentations};
+use crate::interpreter_objects::InterpretedParsed;
 use crate::token::Token;
 use crate::token_type::TokenType;
 
@@ -55,7 +56,33 @@ impl Interpreter {
         }
     }
 
-    fn eval_binary<'a>(&mut self, left: Expr, operator: Token, right: Expr) -> RLoxEvalResult {
+    fn fetch_numeric_value(
+        &self,
+        interpreted_value: InterpretedParsed,
+    ) -> Result<f64, InterpreterError> {
+        if let InterpretedParsed::IntepretedNum { value } = interpreted_value {
+            return Ok(value);
+        } else {
+            return Err(InterpreterError {
+                reason: "Failed to fetch numeric value".to_string(),
+            });
+        }
+    }
+
+    fn fetch_stringified_value(
+        &self,
+        interpreted_value: InterpretedParsed,
+    ) -> Result<String, InterpreterError> {
+        if let InterpretedParsed::InterpretedStr { value } = interpreted_value {
+            return Ok(value);
+        } else {
+            return Err(InterpreterError {
+                reason: "Failed to fetch String".to_string(),
+            });
+        }
+    }
+
+    fn eval_binary(&mut self, left: Expr, operator: Token, right: Expr) -> RLoxEvalResult {
         let left: RLoxEvalResult = self.eval(left);
         let right: RLoxEvalResult = self.eval(right);
 
@@ -63,9 +90,12 @@ impl Interpreter {
             TokenType::MINUS => {
                 let left_expr = left.unwrap();
                 let right_expr = right.unwrap();
-                let x = self.binary_evaluation(&left_expr, &right_expr)?;
-                let left_num = x.0 .0;
-                let right_num = x.1 .0;
+
+                let x: (InterpretedParsed, InterpretedParsed) =
+                    self.binary_evaluation(&left_expr, &right_expr)?;
+
+                let left_num = self.fetch_numeric_value(x.0)?;
+                let right_num = self.fetch_numeric_value(x.1)?;
 
                 return Ok(Expr::Literal {
                     literal: LiteralRepresentations::CustomNumber {
@@ -77,22 +107,20 @@ impl Interpreter {
             TokenType::PLUS => {
                 let left_expr = left.unwrap();
                 let right_expr = right.unwrap();
-                let x = self.binary_evaluation(&left_expr, &right_expr)?;
-
-                //let m = left_expr.clone();
-                //let n = right_expr.clone();
+                let x: (InterpretedParsed, InterpretedParsed) =
+                    self.binary_evaluation(&left_expr, &right_expr)?;
 
                 match (left_expr, right_expr) {
                     (
                         Expr::Literal {
-                            literal: LiteralRepresentations::CustomNumber { val: l },
+                            literal: LiteralRepresentations::CustomNumber { val: _l },
                         },
                         Expr::Literal {
-                            literal: LiteralRepresentations::CustomNumber { val: r },
+                            literal: LiteralRepresentations::CustomNumber { val: _r },
                         },
                     ) => {
-                        let left_num = x.0 .0;
-                        let right_num = x.1 .0;
+                        let left_num = self.fetch_numeric_value(x.0)?;
+                        let right_num = self.fetch_numeric_value(x.1)?;
 
                         return Ok(Expr::Literal {
                             literal: LiteralRepresentations::CustomNumber {
@@ -103,14 +131,14 @@ impl Interpreter {
 
                     (
                         Expr::Literal {
-                            literal: LiteralRepresentations::CustomString { val: l },
+                            literal: LiteralRepresentations::CustomString { val: _l },
                         },
                         Expr::Literal {
-                            literal: LiteralRepresentations::CustomString { val: r },
+                            literal: LiteralRepresentations::CustomString { val: _r },
                         },
                     ) => {
-                        let left_str = x.0 .2;
-                        let right_str = x.1 .2;
+                        let left_str = self.fetch_stringified_value(x.0)?;
+                        let right_str = self.fetch_stringified_value(x.1)?;
 
                         return Ok(Expr::Literal {
                             literal: LiteralRepresentations::CustomString {
@@ -118,16 +146,23 @@ impl Interpreter {
                             },
                         });
                     }
-                    _ => panic!("fff"),
+                    _ => {
+                        return Err(InterpreterError {
+                            reason: "PLUS operation failed, can only add 2 numbers or 2 strings"
+                                .to_string(),
+                        });
+                    }
                 };
             }
 
             TokenType::SLASH => {
                 let left_expr = left.unwrap();
                 let right_expr = right.unwrap();
-                let x = self.binary_evaluation(&left_expr, &right_expr)?;
-                let left_num = x.0 .0;
-                let right_num = x.1 .0;
+                let x: (InterpretedParsed, InterpretedParsed) =
+                    self.binary_evaluation(&left_expr, &right_expr)?;
+
+                let left_num = self.fetch_numeric_value(x.0)?;
+                let right_num = self.fetch_numeric_value(x.1)?;
 
                 return Ok(Expr::Literal {
                     literal: LiteralRepresentations::CustomNumber {
@@ -146,26 +181,9 @@ impl Interpreter {
         &self,
         left: &Expr,
         right: &Expr,
-    ) -> Result<((f64, bool, String), (f64, bool, String)), InterpreterError> {
+    ) -> Result<(InterpretedParsed, InterpretedParsed), InterpreterError> {
         let left_expr = left;
         let right_expr = right;
-        /*let left_expr = match left {
-            Ok(ex) => ex,
-            Err(_) => {
-                return Err(InterpreterError {
-                    reason: "Failed to interpret left expression, binary eval".to_string(),
-                })
-            }
-        };
-
-        let right_expr: Expr = match right {
-            Ok(ex) => ex,
-            Err(_) => {
-                return Err(InterpreterError {
-                    reason: "Failed to interpret right expression, binary eval".to_string(),
-                })
-            }
-        };*/
 
         let left_lit = self.parse_expr(left_expr)?;
         let right_lit = self.parse_expr(right_expr)?;
@@ -176,11 +194,17 @@ impl Interpreter {
         ));
     }
 
-    fn get_val_from_literal(&self, l: LiteralRepresentations) -> (f64, bool, String) {
+    fn get_val_from_literal(&self, l: LiteralRepresentations) -> InterpretedParsed {
         match l {
-            LiteralRepresentations::CustomNumber { val } => (val, false, "null".to_string()),
-            LiteralRepresentations::CustomBoolean { val } => (0.0, val, "null".to_string()),
-            LiteralRepresentations::CustomString { val } => (0.0, false, val),
+            LiteralRepresentations::CustomNumber { val } => {
+                InterpretedParsed::IntepretedNum { value: val }
+            }
+            LiteralRepresentations::CustomBoolean { val } => {
+                InterpretedParsed::InterpretedBool { value: val }
+            }
+            LiteralRepresentations::CustomString { val } => {
+                InterpretedParsed::InterpretedStr { value: val }
+            }
             _ => panic!(),
         }
     }
@@ -191,7 +215,7 @@ impl Interpreter {
                 LiteralRepresentations::CustomBoolean { val } => {
                     Ok(LiteralRepresentations::CustomBoolean { val: *val })
                 }
-                LiteralRepresentations::CustomNil { val } => {
+                LiteralRepresentations::CustomNil { val: _ } => {
                     Ok(LiteralRepresentations::CustomNil {
                         val: "Fail".to_string(),
                     })
@@ -258,7 +282,7 @@ impl Interpreter {
     fn is_truthy(&self, literal_expr: Literal) -> bool {
         match literal_expr {
             Literal {
-                literal: LiteralRepresentations::CustomNil { val },
+                literal: LiteralRepresentations::CustomNil { val: _ },
             } => return false,
             Literal {
                 literal: LiteralRepresentations::CustomBoolean { val },
