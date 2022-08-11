@@ -7,19 +7,35 @@ use crate::interpreter_objects::InterpretedParsed;
 use crate::token::Token;
 use crate::token_type::TokenType;
 
-struct Interpreter {
+pub struct Interpreter {
     test: String,
 }
 
 #[derive(Debug)]
-struct InterpreterError {
+pub struct InterpreterError {
     reason: String,
+}
+
+// TODO: Re-implement error structs better
+pub struct RuntimeError {
+    pub reason: String,
+    pub token: Token,
 }
 
 type RLoxEvalResult = Result<Expr, InterpreterError>;
 
 impl Interpreter {
-    pub fn eval(&mut self, expr: Expr) -> RLoxEvalResult {
+    pub fn new() -> Self {
+        Self {
+            test: "Running".to_string(),
+        }
+    }
+
+    pub fn interpret(&mut self, expr: Expr) -> RLoxEvalResult {
+        return self.eval(expr);
+    }
+
+    fn eval(&mut self, expr: Expr) -> RLoxEvalResult {
         match expr {
             Expr::Binary {
                 left,
@@ -129,6 +145,78 @@ impl Interpreter {
         }
     }
 
+    fn is_equal(&self, left: Expr, right: Expr) -> bool {
+        match (left, right) {
+            (
+                Expr::Literal {
+                    literal: LiteralRepresentations::CustomNil { val: _ },
+                },
+                Expr::Literal {
+                    literal: LiteralRepresentations::CustomNil { val: _ },
+                },
+            ) => return true,
+            (
+                Expr::Literal {
+                    literal: LiteralRepresentations::CustomString { val: l },
+                },
+                Expr::Literal {
+                    literal: LiteralRepresentations::CustomString { val: r },
+                },
+            ) => return l == r,
+            (
+                Expr::Literal {
+                    literal: LiteralRepresentations::CustomBoolean { val: l },
+                },
+                Expr::Literal {
+                    literal: LiteralRepresentations::CustomBoolean { val: r },
+                },
+            ) => return l == r,
+            (
+                Expr::Literal {
+                    literal: LiteralRepresentations::CustomNumber { val: l },
+                },
+                Expr::Literal {
+                    literal: LiteralRepresentations::CustomNumber { val: r },
+                },
+            ) => return l == r,
+            _ => return false,
+        }
+
+        return true;
+    }
+
+    fn check_number_operand(&self, operator: Token, operand: Expr) -> Result<(), InterpreterError> {
+        match operand {
+            Expr::Literal {
+                literal: LiteralRepresentations::CustomNumber { val: _ },
+            } => Ok(()),
+            _ => Err(InterpreterError {
+                reason: format!("Operand must be a number, operator is {:#?}", operator),
+            }),
+        }
+    }
+
+    fn check_number_operands(
+        &self,
+        operator: Token,
+        left: Expr,
+        right: Expr,
+    ) -> Result<(), InterpreterError> {
+        match (left, right) {
+            (
+                Expr::Literal {
+                    literal: LiteralRepresentations::CustomNumber { val: _ },
+                },
+                Expr::Literal {
+                    literal: LiteralRepresentations::CustomNumber { val: _ },
+                },
+            ) => Ok(()),
+            _ => Err(InterpreterError {
+                reason: format!("Operands must be numbers, operator is {:#?}", operator),
+            }),
+        }
+    }
+
     fn eval_binary(&mut self, left: Expr, operator: Token, right: Expr) -> RLoxEvalResult {
         let left: RLoxEvalResult = self.eval(left);
         let right: RLoxEvalResult = self.eval(right);
@@ -140,7 +228,24 @@ impl Interpreter {
             self.binary_evaluation(&left_expr, &right_expr)?;
 
         match operator.token_type {
+            TokenType::BANGEQUAL => {
+                return Ok(Expr::Literal {
+                    literal: LiteralRepresentations::CustomBoolean {
+                        val: !self.is_equal(left_expr, right_expr),
+                    },
+                })
+            }
+
+            TokenType::EQUALEQUAL => {
+                return Ok(Expr::Literal {
+                    literal: LiteralRepresentations::CustomBoolean {
+                        val: self.is_equal(left_expr, right_expr),
+                    },
+                })
+            }
+
             TokenType::GREATER => {
+                self.check_number_operands(operator, left_expr, right_expr)?;
                 let left_num: f64 = self.fetch_numeric_value(x.0)?;
                 let right_num: f64 = self.fetch_numeric_value(x.1)?;
 
@@ -148,6 +253,7 @@ impl Interpreter {
             }
 
             TokenType::GREATEREQUAL => {
+                self.check_number_operands(operator, left_expr, right_expr)?;
                 let left_num: f64 = self.fetch_numeric_value(x.0)?;
                 let right_num: f64 = self.fetch_numeric_value(x.1)?;
 
@@ -155,6 +261,7 @@ impl Interpreter {
             }
 
             TokenType::LESS => {
+                self.check_number_operands(operator, left_expr, right_expr)?;
                 let left_num: f64 = self.fetch_numeric_value(x.0)?;
                 let right_num: f64 = self.fetch_numeric_value(x.1)?;
 
@@ -162,6 +269,7 @@ impl Interpreter {
             }
 
             TokenType::LESSEQUAL => {
+                self.check_number_operands(operator, left_expr, right_expr)?;
                 let left_num: f64 = self.fetch_numeric_value(x.0)?;
                 let right_num: f64 = self.fetch_numeric_value(x.1)?;
 
@@ -169,6 +277,7 @@ impl Interpreter {
             }
 
             TokenType::MINUS => {
+                self.check_number_operands(operator, left_expr, right_expr)?;
                 let left_num = self.fetch_numeric_value(x.0)?;
                 let right_num = self.fetch_numeric_value(x.1)?;
 
@@ -226,12 +335,25 @@ impl Interpreter {
             }
 
             TokenType::SLASH => {
+                self.check_number_operands(operator, left_expr, right_expr)?;
                 let left_num = self.fetch_numeric_value(x.0)?;
                 let right_num = self.fetch_numeric_value(x.1)?;
 
                 return Ok(Expr::Literal {
                     literal: LiteralRepresentations::CustomNumber {
                         val: left_num / right_num,
+                    },
+                });
+            }
+
+            TokenType::STAR => {
+                self.check_number_operands(operator, left_expr, right_expr)?;
+                let left_num = self.fetch_numeric_value(x.0)?;
+                let right_num = self.fetch_numeric_value(x.1)?;
+
+                return Ok(Expr::Literal {
+                    literal: LiteralRepresentations::CustomNumber {
+                        val: left_num * right_num,
                     },
                 });
             }
@@ -329,6 +451,8 @@ impl Interpreter {
                 Ok(Expr::Literal {
                     literal: LiteralRepresentations::CustomNumber { val: number },
                 }) => {
+                    self.check_number_operand(operator, right.unwrap())?;
+
                     return Ok(Expr::Literal {
                         literal: LiteralRepresentations::CustomNumber { val: -number },
                     });

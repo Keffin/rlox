@@ -40,23 +40,6 @@ pub enum LiteralRepresentations {
     CustomString { val: String },
 }
 
-impl LiteralRepresentations {
-    pub fn create_num(&self, num: f64) -> CustomNumber {
-        CustomNumber { val: num }
-    }
-
-    pub fn get_boolean(&self, l: CustomBoolean) -> bool {
-        l.val
-    }
-
-    pub fn get_number(&self, l: CustomNumber) -> f64 {
-        l.val
-    }
-
-    pub fn get_string(&self, l: CustomString) -> String {
-        l.val
-    }
-}
 pub struct CustomBoolean {
     val: bool,
 }

@@ -3,16 +3,25 @@ use std::{
     io::{stdin, stdout, Write},
 };
 
-use crate::{expr::Expr, interpreter, parser::Parser, token::Token};
+use crate::{
+    expr::Expr,
+    interpreter::{self, Interpreter, RuntimeError},
+    parser::Parser,
+    token::Token,
+};
 use crate::{scanner::Scanner, token_type::TokenType};
 
 pub struct Lox {
     pub had_error: bool,
+    pub had_runtime_error: bool,
 }
 
 impl Lox {
     pub fn new() -> Self {
-        Self { had_error: false }
+        Self {
+            had_error: false,
+            had_runtime_error: false,
+        }
     }
 
     pub fn repl(&mut self) {
@@ -40,16 +49,22 @@ impl Lox {
         if self.had_error {
             std::process::exit(65);
         }
+
+        if self.had_runtime_error {
+            std::process::exit(70);
+        }
     }
 
     pub fn run(&self, source: String) {
         let mut scanner: Scanner = Scanner::new(source);
         let tokens: &Vec<Token> = scanner.scan_tokens();
-
         let mut parser: Parser = Parser::new(tokens.to_vec());
-        let expr: Box<Expr> = parser.parse();
+        let expr: Expr = parser.parse();
 
-        println!("{:#?}", expr);
+        let mut interpreter: Interpreter = Interpreter::new();
+
+        let res = interpreter.interpret(expr).unwrap();
+        println!("{:#?}", res);
     }
 
     pub fn parser_error(&mut self, token: Token, message: &str) {
@@ -60,6 +75,11 @@ impl Lox {
             let loc_msg: String = format!("at '{}'", token.lexeme);
             self.report(token.line, &loc_msg, message)
         }
+    }
+
+    pub fn runtime_error(&mut self, err: RuntimeError) {
+        println!("{} \n [line {} ]", err.reason, err.token.line);
+        self.had_runtime_error = true;
     }
 
     pub fn error(&mut self, line: u32, message: &str) {
