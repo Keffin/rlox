@@ -21,32 +21,32 @@ impl Parser {
         }
     }
 
-    pub fn parse(&mut self) -> Box<Expr> {
+    pub fn parse(&mut self) -> Expr {
         self.expression()
     }
 
-    fn expression(&mut self) -> Box<Expr> {
+    fn expression(&mut self) -> Expr {
         self.equality()
     }
 
-    fn equality(&mut self) -> Box<Expr> {
-        let mut expr: Box<Expr> = self.comparison();
+    fn equality(&mut self) -> Expr {
+        let mut expr: Expr = self.comparison();
 
         while self.matches(vec![TokenType::BANGEQUAL, TokenType::EQUALEQUAL]) {
             let operator: Token = self.previous().clone();
-            let right: Box<Expr> = self.comparison();
-            expr = Box::new(Expr::Binary {
-                left: expr,
+            let right: Expr = self.comparison();
+            expr = Expr::Binary {
+                left: Box::new(expr),
                 operator: operator,
-                right: right,
-            })
+                right: Box::new(right),
+            }
         }
 
         expr
     }
 
-    fn comparison(&mut self) -> Box<Expr> {
-        let mut expr: Box<Expr> = self.term();
+    fn comparison(&mut self) -> Expr {
+        let mut expr: Expr = self.term();
 
         while self.matches(vec![
             TokenType::GREATER,
@@ -55,75 +55,75 @@ impl Parser {
             TokenType::LESSEQUAL,
         ]) {
             let operator: Token = self.previous().clone();
-            let right: Box<Expr> = self.term();
-            expr = Box::new(Expr::Binary {
-                left: expr,
+            let right: Expr = self.term();
+            expr = Expr::Binary {
+                left: Box::new(expr),
                 operator: operator,
-                right: right,
-            })
+                right: Box::new(right),
+            }
         }
         expr
     }
 
-    fn term(&mut self) -> Box<Expr> {
-        let mut expr: Box<Expr> = self.factor();
+    fn term(&mut self) -> Expr {
+        let mut expr: Expr = self.factor();
         while self.matches(vec![TokenType::MINUS, TokenType::PLUS]) {
             let operator: Token = self.previous().clone();
             print!("{:#?}", operator);
-            let right: Box<Expr> = self.factor();
-            expr = Box::new(Expr::Binary {
-                left: expr,
+            let right: Expr = self.factor();
+            expr = Expr::Binary {
+                left: Box::new(expr),
                 operator: operator,
-                right: right,
-            })
+                right: Box::new(right),
+            }
         }
         expr
     }
 
-    fn factor(&mut self) -> Box<Expr> {
-        let mut expr: Box<Expr> = self.unary();
+    fn factor(&mut self) -> Expr {
+        let mut expr: Expr = self.unary();
 
         while self.matches(vec![TokenType::SLASH, TokenType::STAR]) {
             let operator: Token = self.previous().clone();
-            let right: Box<Expr> = self.unary();
-            expr = Box::new(Expr::Binary {
-                left: expr,
+            let right: Expr = self.unary();
+            expr = Expr::Binary {
+                left: Box::new(expr),
                 operator: operator,
-                right: right,
-            })
+                right: Box::new(right),
+            }
         }
         expr
     }
 
-    fn unary(&mut self) -> Box<Expr> {
+    fn unary(&mut self) -> Expr {
         if self.matches(vec![TokenType::BANG, TokenType::MINUS]) {
             let operator: Token = self.previous().clone();
-            let right: Box<Expr> = self.unary();
-            return Box::new(Expr::Unary {
+            let right: Expr = self.unary();
+            return Expr::Unary {
                 operator: operator,
-                right: right,
-            });
+                right: Box::new(right),
+            };
         }
         self.primary()
     }
 
-    fn primary(&mut self) -> Box<Expr> {
+    fn primary(&mut self) -> Expr {
         if self.matches(vec![TokenType::FALSE]) {
-            return Box::new(Expr::Literal {
+            return Expr::Literal {
                 literal: LiteralRepresentations::CustomBoolean { val: false },
-            });
+            };
         }
         if self.matches(vec![TokenType::TRUE]) {
-            return Box::new(Expr::Literal {
+            return Expr::Literal {
                 literal: LiteralRepresentations::CustomBoolean { val: true },
-            });
+            };
         }
         if self.matches(vec![TokenType::NIL]) {
-            return Box::new(Expr::Literal {
+            return Expr::Literal {
                 literal: LiteralRepresentations::CustomNil {
                     val: "Null".to_string(),
                 },
-            });
+            };
         }
         if self.matches(vec![TokenType::NUMBER, TokenType::STRING]) {
             let tt: Token = self.previous().clone();
@@ -131,28 +131,30 @@ impl Parser {
                 let tt_val: Result<f64, ParseFloatError> = tt.literal.parse::<f64>();
                 match tt_val {
                     Ok(val) => {
-                        return Box::new(Expr::Literal {
+                        return Expr::Literal {
                             literal: LiteralRepresentations::CustomNumber { val },
-                        })
+                        }
                     }
                     Err(e) => panic!("Failed to parse float {}", e),
                 };
             } else {
-                return Box::new(Expr::Literal {
+                return Expr::Literal {
                     literal: LiteralRepresentations::CustomString { val: tt.literal },
-                });
+                };
             }
         }
 
         if self.matches(vec![TokenType::LEFTPAREN]) {
-            let expr: Box<Expr> = self.expression();
+            let expr: Expr = self.expression();
             self.consume(TokenType::RIGHTPAREN, "Expect ')' after expression.");
-            return Box::new(Expr::Grouping { expr });
+            return Expr::Grouping {
+                expr: Box::new(expr),
+            };
         }
 
-        Box::new(Expr::FailScenario {
+        Expr::FailScenario {
             reason: "Reached end, expecting an expression".to_string(),
-        })
+        }
     }
 
     fn consume(
@@ -186,7 +188,7 @@ impl Parser {
     }
 
     fn advance(&mut self) -> Token {
-        if self.is_at_end() {
+        if !self.is_at_end() {
             self.current += 1;
         }
         self.previous().clone()
