@@ -7,6 +7,7 @@ use crate::{
     expr::Expr,
     interpreter::{self, Interpreter, RuntimeError},
     parser::Parser,
+    stmt::Stmt,
     token::Token,
 };
 use crate::{scanner::Scanner, token_type::TokenType};
@@ -59,12 +60,18 @@ impl Lox {
         let mut scanner: Scanner = Scanner::new(source);
         let tokens: &Vec<Token> = scanner.scan_tokens();
         let mut parser: Parser = Parser::new(tokens.to_vec());
-        let expr: Expr = parser.parse();
+        //let expr: Expr = parser.parse();
+        let statements: Vec<Stmt> = parser.parse_stmts();
+
+        if self.had_error {
+            std::process::exit(65);
+        }
 
         let mut interpreter: Interpreter = Interpreter::new();
 
-        let res = interpreter.interpret(expr).unwrap();
-        println!("{:#?}", res);
+        let _ = interpreter.interpret_stmts(statements).unwrap();
+        // Result is printed in interpreter
+        //println!("{:#?}", res);
     }
 
     pub fn parser_error(&mut self, token: Token, message: &str) {

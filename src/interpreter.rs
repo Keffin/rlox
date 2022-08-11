@@ -32,12 +32,14 @@ impl Interpreter {
         }
     }
 
-    pub fn interpret_stmts(&mut self, statements: Vec<Stmt>) -> RLoxEvalResult {
+    pub fn interpret_stmts(&mut self, statements: Vec<Stmt>) -> Result<(), &str> {
         // TODO: Need to fix this
         for expr in statements {
-            self.eval_stmt(expr);
+            let x = self.eval_stmt(expr);
+
+            println!("{:#?}", x.unwrap());
         }
-        panic!()
+        Ok(())
     }
 
     pub fn interpret(&mut self, expr: Expr) -> RLoxEvalResult {
@@ -45,22 +47,16 @@ impl Interpreter {
     }
 
     fn eval_stmt(&mut self, expr: Stmt) -> RLoxEvalResult {
-        if let Stmt::Expression(Expression { expression: expr }) = expr {
-            return self.eval(expr);
-        } else {
-            panic!()
-        }
-    }
-
-    fn eval_print_stmt(&mut self, expr: Stmt) {
-        if let Stmt::Print(Print {
-            print_expression: expr,
-        }) = expr
-        {
-            let evaled = self.eval(expr).unwrap();
-            println!("{:#?}", evaled);
-        } else {
-            panic!()
+        match expr {
+            Stmt::Expression(Expression { expression: expr }) => {
+                return self.eval(expr);
+            }
+            Stmt::Print(Print {
+                print_expression: expr,
+            }) => {
+                return self.eval(expr);
+            }
+            _ => panic!(),
         }
     }
 

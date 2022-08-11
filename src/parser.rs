@@ -28,6 +28,7 @@ impl Parser {
         while !self.is_at_end() {
             statements.push(self.statement());
         }
+
         statements
     }
 
