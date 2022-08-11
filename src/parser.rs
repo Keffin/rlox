@@ -4,6 +4,7 @@ use std::num::ParseFloatError;
 use crate::{
     expr::{Expr, LiteralRepresentations},
     lox::{self, Lox},
+    stmt::{Expression, Print, Stmt},
     token::{self, Token},
     token_type::TokenType,
 };
@@ -19,6 +20,37 @@ impl Parser {
             tokens: tokens,
             current: 0,
         }
+    }
+
+    pub fn parse_stmts(&mut self) -> Vec<Stmt> {
+        let mut statements: Vec<Stmt> = Vec::new();
+
+        while !self.is_at_end() {
+            statements.push(self.statement());
+        }
+        statements
+    }
+
+    fn statement(&mut self) -> Stmt {
+        if self.matches(vec![TokenType::PRINT]) {
+            return self.print_statement();
+        }
+
+        self.expression_statement()
+    }
+
+    fn print_statement(&mut self) -> Stmt {
+        let print_expr: Expr = self.expression();
+        self.consume(TokenType::SEMICOLON, "Expect ';' after value.");
+        return Stmt::Print(Print {
+            print_expression: print_expr,
+        });
+    }
+
+    fn expression_statement(&mut self) -> Stmt {
+        let expr: Expr = self.expression();
+        self.consume(TokenType::SEMICOLON, "Expect ';' after expression.");
+        return Stmt::Expression(Expression { expression: expr });
     }
 
     pub fn parse(&mut self) -> Expr {

@@ -4,6 +4,7 @@ use std::marker::PhantomData;
 
 use crate::expr::{self, CustomBoolean, CustomNumber, Expr, Literal, LiteralRepresentations};
 use crate::interpreter_objects::InterpretedParsed;
+use crate::stmt::{Expression, Print, Stmt};
 use crate::token::Token;
 use crate::token_type::TokenType;
 
@@ -31,8 +32,36 @@ impl Interpreter {
         }
     }
 
+    pub fn interpret_stmts(&mut self, statements: Vec<Stmt>) -> RLoxEvalResult {
+        // TODO: Need to fix this
+        for expr in statements {
+            self.eval_stmt(expr);
+        }
+        panic!()
+    }
+
     pub fn interpret(&mut self, expr: Expr) -> RLoxEvalResult {
         return self.eval(expr);
+    }
+
+    fn eval_stmt(&mut self, expr: Stmt) -> RLoxEvalResult {
+        if let Stmt::Expression(Expression { expression: expr }) = expr {
+            return self.eval(expr);
+        } else {
+            panic!()
+        }
+    }
+
+    fn eval_print_stmt(&mut self, expr: Stmt) {
+        if let Stmt::Print(Print {
+            print_expression: expr,
+        }) = expr
+        {
+            let evaled = self.eval(expr).unwrap();
+            println!("{:#?}", evaled);
+        } else {
+            panic!()
+        }
     }
 
     fn eval(&mut self, expr: Expr) -> RLoxEvalResult {
