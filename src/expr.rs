@@ -23,6 +23,9 @@ pub enum Expr {
     FailScenario {
         reason: String,
     },
+    Variable {
+        name: Token,
+    },
 }
 
 #[derive(Debug, Clone)]

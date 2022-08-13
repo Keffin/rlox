@@ -1,15 +1,12 @@
-use std::borrow::Borrow;
-use std::error::Error;
-use std::marker::PhantomData;
-
+use crate::environment::Environment;
 use crate::expr::{self, CustomBoolean, CustomNumber, Expr, Literal, LiteralRepresentations};
 use crate::interpreter_objects::InterpretedParsed;
-use crate::stmt::{Expression, Print, Stmt};
+use crate::stmt::{Expression, Print, Stmt, Var};
 use crate::token::Token;
 use crate::token_type::TokenType;
 
 pub struct Interpreter {
-    test: String,
+    environment: Environment,
 }
 
 #[derive(Debug)]
@@ -28,7 +25,7 @@ type RLoxEvalResult = Result<Expr, InterpreterError>;
 impl Interpreter {
     pub fn new() -> Self {
         Self {
-            test: "Running".to_string(),
+            environment: Environment::new(),
         }
     }
 
@@ -56,7 +53,40 @@ impl Interpreter {
             }) => {
                 return self.eval(expr);
             }
-            _ => panic!(),
+            Stmt::Var(Var { name, initializer }) => match initializer {
+                Some(initializer) => {
+                    let expr = self.eval(initializer)?;
+
+                    match self.parse_expr(&expr) {
+                        Ok(value) => {
+                            self.environment.define(name.lexeme, value);
+                            return Ok(expr);
+                        }
+                        Err(_) => {
+                            return Err(InterpreterError {
+                                reason: format!(
+                                    "Failed to fetch literal from expression {:#?}",
+                                    expr
+                                ),
+                            })
+                        }
+                    }
+                }
+                None => {
+                    let null_expr: Expr = Expr::Literal {
+                        literal: LiteralRepresentations::CustomNil {
+                            val: "Null".to_string(),
+                        },
+                    };
+                    self.environment.define(
+                        name.lexeme,
+                        LiteralRepresentations::CustomNil {
+                            val: "Null".to_string(),
+                        },
+                    );
+                    return Ok(null_expr);
+                }
+            },
         }
     }
 
@@ -94,151 +124,11 @@ impl Interpreter {
             Expr::Grouping { expr } => self.eval(*expr),
             Expr::Unary { operator, right } => self.eval_unary(operator, *right),
             Expr::FailScenario { reason } => self.eval_fail_scenario(reason),
-        }
-    }
+            Expr::Variable { name } => {
+                let literal_value: LiteralRepresentations = self.environment.get(name).unwrap();
 
-    fn fetch_numeric_value(
-        &self,
-        interpreted_value: InterpretedParsed,
-    ) -> Result<f64, InterpreterError> {
-        if let InterpretedParsed::IntepretedNum { value } = interpreted_value {
-            return Ok(value);
-        } else {
-            return Err(InterpreterError {
-                reason: "Failed to fetch numeric value".to_string(),
-            });
-        }
-    }
-
-    fn fetch_stringified_value(
-        &self,
-        interpreted_value: InterpretedParsed,
-    ) -> Result<String, InterpreterError> {
-        if let InterpretedParsed::InterpretedStr { value } = interpreted_value {
-            return Ok(value);
-        } else {
-            return Err(InterpreterError {
-                reason: "Failed to fetch String".to_string(),
-            });
-        }
-    }
-
-    fn fetch_boolean_evaluation(
-        &self,
-        operator_token_type: TokenType,
-        left_num: f64,
-        right_num: f64,
-    ) -> RLoxEvalResult {
-        match operator_token_type {
-            TokenType::GREATER => {
-                return Ok(Expr::Literal {
-                    literal: LiteralRepresentations::CustomBoolean {
-                        val: left_num > right_num,
-                    },
-                })
+                Ok(self.convert_literal_to_expr(literal_value))
             }
-
-            TokenType::GREATEREQUAL => {
-                return Ok(Expr::Literal {
-                    literal: LiteralRepresentations::CustomBoolean {
-                        val: left_num >= right_num,
-                    },
-                })
-            }
-
-            TokenType::LESS => {
-                return Ok(Expr::Literal {
-                    literal: LiteralRepresentations::CustomBoolean {
-                        val: left_num < right_num,
-                    },
-                })
-            }
-
-            TokenType::LESSEQUAL => {
-                return Ok(Expr::Literal {
-                    literal: LiteralRepresentations::CustomBoolean {
-                        val: left_num <= right_num,
-                    },
-                })
-            }
-
-            _ => {
-                return Err(InterpreterError {
-                    reason: "Failed, only expecting boolean comparisions".to_string(),
-                })
-            }
-        }
-    }
-
-    fn is_equal(&self, left: Expr, right: Expr) -> bool {
-        match (left, right) {
-            (
-                Expr::Literal {
-                    literal: LiteralRepresentations::CustomNil { val: _ },
-                },
-                Expr::Literal {
-                    literal: LiteralRepresentations::CustomNil { val: _ },
-                },
-            ) => return true,
-            (
-                Expr::Literal {
-                    literal: LiteralRepresentations::CustomString { val: l },
-                },
-                Expr::Literal {
-                    literal: LiteralRepresentations::CustomString { val: r },
-                },
-            ) => return l == r,
-            (
-                Expr::Literal {
-                    literal: LiteralRepresentations::CustomBoolean { val: l },
-                },
-                Expr::Literal {
-                    literal: LiteralRepresentations::CustomBoolean { val: r },
-                },
-            ) => return l == r,
-            (
-                Expr::Literal {
-                    literal: LiteralRepresentations::CustomNumber { val: l },
-                },
-                Expr::Literal {
-                    literal: LiteralRepresentations::CustomNumber { val: r },
-                },
-            ) => return l == r,
-            _ => return false,
-        }
-
-        return true;
-    }
-
-    fn check_number_operand(&self, operator: Token, operand: Expr) -> Result<(), InterpreterError> {
-        match operand {
-            Expr::Literal {
-                literal: LiteralRepresentations::CustomNumber { val: _ },
-            } => Ok(()),
-            _ => Err(InterpreterError {
-                reason: format!("Operand must be a number, operator is {:#?}", operator),
-            }),
-        }
-    }
-
-    fn check_number_operands(
-        &self,
-        operator: Token,
-        left: Expr,
-        right: Expr,
-    ) -> Result<(), InterpreterError> {
-        match (left, right) {
-            (
-                Expr::Literal {
-                    literal: LiteralRepresentations::CustomNumber { val: _ },
-                },
-                Expr::Literal {
-                    literal: LiteralRepresentations::CustomNumber { val: _ },
-                },
-            ) => Ok(()),
-            _ => Err(InterpreterError {
-                reason: format!("Operands must be numbers, operator is {:#?}", operator),
-            }),
         }
     }
 
@@ -406,6 +296,217 @@ impl Interpreter {
         ));
     }
 
+    fn eval_unary(&mut self, operator: Token, right: Expr) -> RLoxEvalResult {
+        let right: RLoxEvalResult = self.eval(right);
+
+        match operator.token_type {
+            TokenType::BANG => match right {
+                Ok(Expr::Literal {
+                    literal: LiteralRepresentations::CustomBoolean { val },
+                }) => {
+                    return Ok(Expr::Literal {
+                        literal: LiteralRepresentations::CustomBoolean {
+                            val: self.is_truthy(Literal {
+                                literal: LiteralRepresentations::CustomBoolean { val: !val },
+                            }),
+                        },
+                    });
+                }
+                _ => Err(InterpreterError {
+                    reason: "Only accepts boolean types".to_string(),
+                }),
+            },
+            TokenType::MINUS => match right {
+                Ok(Expr::Literal {
+                    literal: LiteralRepresentations::CustomNumber { val: number },
+                }) => {
+                    self.check_number_operand(operator, right.unwrap())?;
+
+                    return Ok(Expr::Literal {
+                        literal: LiteralRepresentations::CustomNumber { val: -number },
+                    });
+                }
+                _ => Err(InterpreterError {
+                    reason: "Could not parse expression in unary evaluation".to_string(),
+                }),
+            },
+            _ => Err(InterpreterError {
+                reason: "Failed to interpret, unary method accepts only BANG and MINUS type"
+                    .to_string(),
+            }),
+        }
+    }
+
+    // Utilities
+
+    fn check_number_operand(&self, operator: Token, operand: Expr) -> Result<(), InterpreterError> {
+        match operand {
+            Expr::Literal {
+                literal: LiteralRepresentations::CustomNumber { val: _ },
+            } => Ok(()),
+            _ => Err(InterpreterError {
+                reason: format!("Operand must be a number, operator is {:#?}", operator),
+            }),
+        }
+    }
+
+    fn check_number_operands(
+        &self,
+        operator: Token,
+        left: Expr,
+        right: Expr,
+    ) -> Result<(), InterpreterError> {
+        match (left, right) {
+            (
+                Expr::Literal {
+                    literal: LiteralRepresentations::CustomNumber { val: _ },
+                },
+                Expr::Literal {
+                    literal: LiteralRepresentations::CustomNumber { val: _ },
+                },
+            ) => Ok(()),
+            _ => Err(InterpreterError {
+                reason: format!("Operands must be numbers, operator is {:#?}", operator),
+            }),
+        }
+    }
+
+    fn convert_literal_to_expr(&self, literal: LiteralRepresentations) -> Expr {
+        match literal {
+            LiteralRepresentations::CustomBoolean { val } => {
+                return Expr::Literal {
+                    literal: LiteralRepresentations::CustomBoolean { val: val },
+                }
+            }
+            LiteralRepresentations::CustomNil { val } => {
+                return Expr::Literal {
+                    literal: LiteralRepresentations::CustomNil { val: val },
+                }
+            }
+            LiteralRepresentations::CustomNumber { val } => {
+                return Expr::Literal {
+                    literal: LiteralRepresentations::CustomNumber { val: val },
+                }
+            }
+            LiteralRepresentations::CustomString { val } => {
+                return Expr::Literal {
+                    literal: LiteralRepresentations::CustomString { val: val },
+                }
+            }
+        }
+    }
+
+    fn fetch_numeric_value(
+        &self,
+        interpreted_value: InterpretedParsed,
+    ) -> Result<f64, InterpreterError> {
+        if let InterpretedParsed::IntepretedNum { value } = interpreted_value {
+            return Ok(value);
+        } else {
+            return Err(InterpreterError {
+                reason: "Failed to fetch numeric value".to_string(),
+            });
+        }
+    }
+
+    fn fetch_stringified_value(
+        &self,
+        interpreted_value: InterpretedParsed,
+    ) -> Result<String, InterpreterError> {
+        if let InterpretedParsed::InterpretedStr { value } = interpreted_value {
+            return Ok(value);
+        } else {
+            return Err(InterpreterError {
+                reason: "Failed to fetch String".to_string(),
+            });
+        }
+    }
+
+    fn fetch_boolean_evaluation(
+        &self,
+        operator_token_type: TokenType,
+        left_num: f64,
+        right_num: f64,
+    ) -> RLoxEvalResult {
+        match operator_token_type {
+            TokenType::GREATER => {
+                return Ok(Expr::Literal {
+                    literal: LiteralRepresentations::CustomBoolean {
+                        val: left_num > right_num,
+                    },
+                })
+            }
+
+            TokenType::GREATEREQUAL => {
+                return Ok(Expr::Literal {
+                    literal: LiteralRepresentations::CustomBoolean {
+                        val: left_num >= right_num,
+                    },
+                })
+            }
+
+            TokenType::LESS => {
+                return Ok(Expr::Literal {
+                    literal: LiteralRepresentations::CustomBoolean {
+                        val: left_num < right_num,
+                    },
+                })
+            }
+
+            TokenType::LESSEQUAL => {
+                return Ok(Expr::Literal {
+                    literal: LiteralRepresentations::CustomBoolean {
+                        val: left_num <= right_num,
+                    },
+                })
+            }
+
+            _ => {
+                return Err(InterpreterError {
+                    reason: "Failed, only expecting boolean comparisions".to_string(),
+                })
+            }
+        }
+    }
+
+    fn is_equal(&self, left: Expr, right: Expr) -> bool {
+        match (left, right) {
+            (
+                Expr::Literal {
+                    literal: LiteralRepresentations::CustomNil { val: _ },
+                },
+                Expr::Literal {
+                    literal: LiteralRepresentations::CustomNil { val: _ },
+                },
+            ) => return true,
+            (
+                Expr::Literal {
+                    literal: LiteralRepresentations::CustomString { val: l },
+                },
+                Expr::Literal {
+                    literal: LiteralRepresentations::CustomString { val: r },
+                },
+            ) => return l == r,
+            (
+                Expr::Literal {
+                    literal: LiteralRepresentations::CustomBoolean { val: l },
+                },
+                Expr::Literal {
+                    literal: LiteralRepresentations::CustomBoolean { val: r },
+                },
+            ) => return l == r,
+            (
+                Expr::Literal {
+                    literal: LiteralRepresentations::CustomNumber { val: l },
+                },
+                Expr::Literal {
+                    literal: LiteralRepresentations::CustomNumber { val: r },
+                },
+            ) => return l == r,
+            _ => return false,
+        }
+    }
+
     fn get_val_from_literal(&self, l: LiteralRepresentations) -> InterpretedParsed {
         match l {
             LiteralRepresentations::CustomNumber { val } => {
@@ -448,47 +549,6 @@ impl Interpreter {
             },
             _ => Err(InterpreterError {
                 reason: "Only parsing literals in this method.".to_string(),
-            }),
-        }
-    }
-
-    fn eval_unary(&mut self, operator: Token, right: Expr) -> RLoxEvalResult {
-        let right: RLoxEvalResult = self.eval(right);
-
-        match operator.token_type {
-            TokenType::BANG => match right {
-                Ok(Expr::Literal {
-                    literal: LiteralRepresentations::CustomBoolean { val },
-                }) => {
-                    return Ok(Expr::Literal {
-                        literal: LiteralRepresentations::CustomBoolean {
-                            val: self.is_truthy(Literal {
-                                literal: LiteralRepresentations::CustomBoolean { val: !val },
-                            }),
-                        },
-                    });
-                }
-                _ => Err(InterpreterError {
-                    reason: "Only accepts boolean types".to_string(),
-                }),
-            },
-            TokenType::MINUS => match right {
-                Ok(Expr::Literal {
-                    literal: LiteralRepresentations::CustomNumber { val: number },
-                }) => {
-                    self.check_number_operand(operator, right.unwrap())?;
-
-                    return Ok(Expr::Literal {
-                        literal: LiteralRepresentations::CustomNumber { val: -number },
-                    });
-                }
-                _ => Err(InterpreterError {
-                    reason: "Could not parse expression in unary evaluation".to_string(),
-                }),
-            },
-            _ => Err(InterpreterError {
-                reason: "Failed to interpret, unary method accepts only BANG and MINUS type"
-                    .to_string(),
             }),
         }
     }

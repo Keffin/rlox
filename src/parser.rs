@@ -4,7 +4,7 @@ use std::num::ParseFloatError;
 use crate::{
     expr::{Expr, LiteralRepresentations},
     lox::{self, Lox},
-    stmt::{Expression, Print, Stmt},
+    stmt::{Expression, Print, Stmt, Var},
     token::{self, Token},
     token_type::TokenType,
 };
@@ -26,10 +26,42 @@ impl Parser {
         let mut statements: Vec<Stmt> = Vec::new();
 
         while !self.is_at_end() {
-            statements.push(self.statement());
+            if let Some(s) = self.declaration() {
+                statements.push(s);
+            }
+
+            //statements.push(self.statement());
         }
 
         statements
+    }
+
+    fn declaration(&mut self) -> Option<Stmt> {
+        if self.matches(vec![TokenType::VAR]) {
+            return Some(self.var_declaration());
+        } else if !self.matches(vec![TokenType::VAR]) {
+            return Some(self.statement());
+        } else {
+            self.synchronize();
+            return None;
+        }
+    }
+
+    fn var_declaration(&mut self) -> Stmt {
+        let name: Token = self
+            .consume(TokenType::IDENTIFIER, "Expect variable name")
+            .unwrap();
+
+        let mut initializer = None;
+        if self.matches(vec![TokenType::EQUAL]) {
+            initializer = Some(self.expression());
+        }
+
+        self.consume(
+            TokenType::SEMICOLON,
+            "Expect ';' after variable declaration.",
+        );
+        return Stmt::Var(Var { name, initializer });
     }
 
     fn statement(&mut self) -> Stmt {
@@ -175,6 +207,12 @@ impl Parser {
                     literal: LiteralRepresentations::CustomString { val: tt.literal },
                 };
             }
+        }
+
+        if self.matches(vec![TokenType::IDENTIFIER]) {
+            return Expr::Variable {
+                name: self.previous().clone(),
+            };
         }
 
         if self.matches(vec![TokenType::LEFTPAREN]) {
